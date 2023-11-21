@@ -1,0 +1,117 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+        body, html{width: 100%;height: 100%;margin:0;font-family:"微软雅黑";}
+        /* #allmap{height:500px;width:100%;}
+        #r-result{width:100%; font-size:14px;} */
+        #allmap{float: right;height:100%;width:80%;}
+        #r-result{float: left;height:80%;width:20%; overflow:auto;text-align: left}
+        #list{position:fixed;top:-16px;}
+        #title{position:fixed;top:5px;}
+    </style>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=MlqF1PWBGUjFjeQikngq2FMGLD8kefkh"></script>
+    <script src="http://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js"></script>
+    <!-- WGS84转BD09 start-->
+    <script src="https://unpkg.com/gcoord/dist/gcoord.global.prod.js"></script>
+    <!-- end -->
+    <title>定位警示</title>
+</head>
+<!-- 框架测试start -->
+
+<!-- end -->
+<body>
+    <div id="allmap"></div>
+
+    <div id="r-result">
+         <div id="list">
+             <p  style="background-color:rgb(0, 255, 221)">----经纬度数据(WGS84坐标)</p>
+            </div>
+         <div id = "title" >
+              <p style="background-color:rgb(0, 255, 221)">ID  |  Time  |  Longitude  | Latitude</p>
+            </div>
+         <p>&nbsp</p>
+         <div id="list_result" style="font-size: 90%"></div>
+    </div>
+</body>
+</html>
+<script type="text/javascript">
+    // 百度地图API功能
+    var map = new BMap.Map("allmap");
+    map.centerAndZoom(new BMap.Point(106.531204,29.452473),15);
+    map.enableScrollWheelZoom(true);
+    var markers = [];  // 标注对象数组
+    var array = new Array(100).fill(0);
+    $(document).ready(function(){
+      $('#list').click(function(){
+        $.getJSON('/ajax_list2/',function(ret){
+          $('#list_result').addClass('overlay');
+          $('#list_result').append(ret[2] + ", " + ret[3] + ", " + ret[0].toFixed(6) + ", " + ret[1].toFixed(6) + "<br />");
+
+          var result = gcoord.transform(
+            [ret[0], ret[1]],    // 经纬度坐标
+            gcoord.WGS84,               // 当前坐标系
+            gcoord.BD09                 // 目标坐标系
+          );
+          
+          // 将特定的序号存进数组
+          var location = {lat: result[0], lon: result[1]};
+          array[ret[4]] = location;
+          array[10] = {lat: 29.452473, lon: 106.531204};
+
+          var longitude = result[0];
+          var latitude = result[1];
+
+          // 移除当前标注
+          for (var i = 0; i < markers.length; i++) {
+            map.removeOverlay(markers[i].marker); // 移除标记
+            map.closeInfoWindow(markers[i].infoWindow); // 移除窗口信息
+          }
+
+          // 添加新标注
+          for (var i = 0; i < array.length; i++) {
+            if (array[i]) {
+              var new_point = new BMap.Point(array[i].lon, array[i].lat);
+              var marker = new BMap.Marker(new_point);
+              marker.id = i;
+              map.addOverlay(marker);
+
+              (function (point) { // 使用闭包创建新的作用域
+                // 创建自定义标注文本和样式
+                var label = new BMap.Label(i, { offset: new BMap.Size(0, -20) });
+                label.setStyle({
+                  color: "#000",
+                  fontSize: "12px",
+                  border: "none",
+                  backgroundColor: "transparent"
+                });
+                marker.setLabel(label);
+
+                var content = '<div>ID号：' + i + '</div>' +
+                              '<div>经度：' + longitude + '</div>' +
+                              '<div>纬度：' + latitude + '</div>';
+
+                var infoWindow = new BMap.InfoWindow(content);
+
+                marker.addEventListener("click", function () {
+                  map.openInfoWindow(infoWindow, point); // 使用闭包中的 point 作为参数
+                });
+
+                markers.push({ marker: marker, infoWindow: infoWindow });
+              })(new_point);
+            }
+          }
+          // map.panTo(new_point);
+        });
+      });
+    });
+
+</script>
+<!-- # 自动点击按钮js -->
+<script type="text/javascript">
+    function myrefresh(){
+    document.getElementById('list').click();
+    }
+    setInterval("myrefresh()","10000");
+</script>
